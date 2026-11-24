@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Photodiode Lab – Optical Fiber Communication, Lecture 6</title>
+<style>:root{--navy:#0B0F2B;--blue:#2F6FED;--pink:#FF6FB5;--yel:#FFE066;--cy:#4DD0E1;--bg:#fff;--gray:#5A6B8C}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Courier New",Courier,monospace;color:var(--navy);background:#fff;background-image:linear-gradient(#eef1f7 1px,transparent 1px),linear-gradient(90deg,#eef1f7 1px,transparent 1px);background-size:40px 40px;line-height:1.45}
+header,main,footer{max-width:1100px;margin:0 auto;padding:12px 16px}
+h1{font-size:1.7rem;margin:.4rem 0}h2{font-size:1.1rem;margin:0 0 .6rem}
+.chip{display:inline-block;background:var(--pink);border:2px solid var(--navy);box-shadow:4px 4px 0 var(--navy);padding:4px 12px;font-weight:700}
+.sub,.hint,.cap{color:var(--gray);font-style:italic;font-size:.85rem;margin:.3rem 0}
+main{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#fff;border:2px solid var(--navy);box-shadow:6px 6px 0 var(--blue);padding:14px}
+#controls{grid-row:span 2}
+label.row{display:block;margin:.6rem 0 .1rem;font-weight:700}
+output{float:right;color:var(--blue)}
+input[type=range]{width:100%}
+select{width:100%;font:inherit;padding:4px;margin-top:4px}
+fieldset{border:2px solid var(--navy);margin:.5rem 0}legend{font-weight:700}
+fieldset label{margin-right:14px}
+button{font:inherit;font-weight:700;border:2px solid var(--navy);background:var(--yel);box-shadow:3px 3px 0 var(--navy);padding:6px 10px;margin:3px;cursor:pointer;min-height:40px}
+button.reset{background:var(--pink)}
+button:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--navy)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}td{border-bottom:1px solid #ccd;padding:5px 3px}td:last-child{text-align:right;font-weight:700;white-space:nowrap}
+.status{padding:8px;border:2px solid var(--navy);font-weight:700;margin-bottom:8px}
+.ok{background:var(--cy)}.bad{background:var(--pink)}
+canvas{width:100%;height:auto;display:block;border:1px solid #ccd;background:#fff}
+.q{margin:.8rem 0;padding:8px;border:1px dashed var(--navy)}
+.q label{display:block;font-weight:400;margin:2px 0}
+.fb{font-weight:700;margin-top:4px}.good{color:#0a7a3d}.wrong{color:#c0267a}
+footer{color:var(--gray);font-size:.8rem}
+@media(max-width:800px){main{grid-template-columns:1fr}#controls{grid-row:auto}h1{font-size:1.3rem}}
+.frac{display:inline-block;vertical-align:middle;text-align:center;margin:0 2px;font-size:.95em}.frac>span{display:block;padding:0 4px;line-height:1.25}.frac>span:first-child{border-bottom:1.5px solid currentColor}
+</style></head>
+<body>
+<header><span class="chip">&gt;_ Lecture 6 · Optical detectors</span>
+<h1>Photodiode Lab: PN · PIN · APD</h1>
+<p class="sub">Change the light and the detector, then watch the photocurrent. Canadian International College (CIC) · Optical Fiber Communication</p></header>
+<main>
+<section class="card" id="controls"><h2>Controls</h2>
+<div class="presets"><button data-p="si850">Si @ 850 nm</button><button data-p="ing1550">InGaAs @ 1550 nm</button><button data-p="si1550">Si @ 1550 nm</button><button data-p="apd">APD, M = 50</button><button id="reset" class="reset">Reset</button></div>
+<fieldset><legend>Detector type</legend>
+<label><input type="radio" name="type" value="PN"> PN</label>
+<label><input type="radio" name="type" value="PIN" checked> PIN</label>
+<label><input type="radio" name="type" value="APD"> APD</label>
+<p class="hint" id="typeHint"></p></fieldset>
+<label class="row">Material
+<select id="mat"><option value="1.12">Silicon (E<sub>g</sub> = 1.12 eV)</option><option value="0.66">Germanium (E<sub>g</sub> = 0.66 eV)</option><option value="0.75" selected>InGaAs (E<sub>g</sub> = 0.75 eV)</option></select></label>
+<label class="row">Wavelength λ <output id="oLam"></output><input type="range" id="lam" min="600" max="2000" step="10" value="1550"></label>
+<p class="hint">Photon energy sets whether absorption is possible.</p>
+<label class="row">Optical power P <output id="oP"></output><input type="range" id="pow" min="1" max="100" step="1" value="10"></label>
+<label class="row">Quantum efficiency η <output id="oEta"></output><input type="range" id="eta" min="0.1" max="1" step="0.05" value="0.8"></label>
+<p class="hint">Electrons collected per incident photon, before any gain.</p>
+<label class="row">Multiplication factor M <output id="oM"></output><input type="range" id="gain" min="1" max="100" step="1" value="50"></label>
+<p class="hint" id="mHint"></p>
+</section>
+<section class="card" id="results"><h2>Results</h2>
+<div id="status" class="status"></div>
+<table>
+<tr><td>Photon energy  E = <span class="frac"><span>hc</span><span>λ</span></span> ≈ <span class="frac"><span>1.24</span><span>λ(µm)</span></span></td><td id="rE"></td></tr>
+<tr><td>Cutoff wavelength  λ<sub>c</sub> = <span class="frac"><span>1.24</span><span>E<sub>g</sub></span></span></td><td id="rLc"></td></tr>
+<tr><td>Responsivity (no gain)  R = <span class="frac"><span>η λ(µm)</span><span>1.24</span></span></td><td id="rR"></td></tr>
+<tr><td>Primary photocurrent  I<sub>p</sub> = R P</td><td id="rIp"></td></tr>
+<tr><td>Gain used  M</td><td id="rM"></td></tr>
+<tr><td>Output current  I<sub>M</sub> = M I<sub>p</sub></td><td id="rIm"></td></tr>
+<tr><td>Electrons per photon  η M</td><td id="rEpp"></td></tr>
+<tr><td>Photon arrival rate  N = <span class="frac"><span>P λ</span><span>h c</span></span></td><td id="rPh"></td></tr>
+</table>
+<p class="sub">Substitution: <span id="subst"></span></p>
+</section>
+<section class="card"><h2>Responsivity vs wavelength</h2><canvas id="c1" width="640" height="300"></canvas>
+<p class="cap" id="cap1"></p></section>
+<section class="card"><h2>Same light, three detectors</h2><canvas id="c2" width="640" height="260"></canvas>
+<p class="cap">PN and PIN give the same DC current here; their difference is speed (below). Only the APD multiplies.</p></section>
+<section class="card"><h2>Pulse response (qualitative sketch)</h2><canvas id="c3" width="640" height="240"></canvas>
+<p class="cap">Dashed: optical pulse. PN shows a slow tail from slow carriers; PIN follows the pulse more closely. Not to scale.</p></section>
+<section class="card" id="quiz"><h2>Predict · Experiment · Explain</h2><div id="qs"></div><button id="qreset" class="reset">Reset questions</button></section>
+</main>
+<footer>Equations use the constant 1.24 V·µm (the value of <span class="frac"><span>hc</span><span>q</span></span>). Gain M assumes one primary carrier per absorbed photon, as in the lecture. Supplementary equations (not in the original slides): E, λ<sub>c</sub>, R, I<sub>p</sub>.</footer>
+<script>/* Photodiode Lab – Optical Fiber Communication, Lecture 6 (PN / PIN / APD)
+   Supplementary relations (hc/q = 1.24 V·um):
+     E(eV) = 1.24/lambda(um);  lambda_c(um) = 1.24/Eg(eV)
+     R = eta*lambda(um)/1.24 (A/W) for lambda <= lambda_c, else 0
+     Ip = R*P;  I_M = M*Ip  (M = 1 for PN and PIN)               */
+const HC_Q = 1.24;                // V·um  (rounded 1.2398)
+const H = 6.626e-34, C = 3.0e8, Q = 1.602e-19;
+
+/** Core physics; pure function so it can be unit-tested. lamNm in nm, P in uW. */
+function compute(s) {
+  const lam = s.lamNm / 1000;                       // um
+  const E = HC_Q / lam;                             // eV
+  const lc = HC_Q / s.Eg;                           // um
+  const detect = lam <= lc;                         // photon energy >= Eg
+  const R = detect ? s.eta * lam / HC_Q : 0;        // A/W (no gain)
+  const M = s.type === 'APD' ? s.M : 1;
+  const Ip = R * s.P;                               // uA  (P in uW, R in A/W)
+  const Im = M * Ip;                                // uA
+  const photons = (s.P * 1e-6) * (lam * 1e-6) / (H * C);   // photons/s
+  return { lam, E, lc, detect, R, M, Ip, Im, epp: detect ? s.eta * M : 0, photons, Reff: R * M };
+}
+if (typeof module !== 'undefined') module.exports = { compute };
+
+if (typeof document !== 'undefined') {
+const $ = id => document.getElementById(id);
+const DEF = { type: 'PIN', Eg: 0.75, lam: 1550, P: 10, eta: 0.8, M: 50 };
+const COLORS = { navy: '#0B0F2B', blue: '#2F6FED', pink: '#FF6FB5', cy: '#4DD0E1' };
+const F = (n, d) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+const fmt = (x, d = 3) => (x === 0 ? '0' : Math.abs(x) < 1e-2 || Math.abs(x) >= 1e5 ? x.toExponential(2) : x.toFixed(d));
+
+function state() {
+  return { type: document.querySelector('input[name=type]:checked').value, Eg: +$('mat').value,
+    lamNm: +$('lam').value, P: +$('pow').value, eta: +$('eta').value, M: +$('gain').value };
+}
+function setState(o) {
+  document.querySelector(`input[name=type][value=${o.type}]`).checked = true;
+  $('mat').value = String(o.Eg); $('lam').value = o.lam; $('pow').value = o.P; $('eta').value = o.eta; $('gain').value = o.M;
+  update();
+}
+function update() {
+  const s = state(), r = compute(s);
+  $('oLam').textContent = s.lamNm + ' nm'; $('oP').textContent = s.P + ' µW';
+  $('oEta').textContent = s.eta.toFixed(2); $('oM').textContent = s.type === 'APD' ? s.M : '1 (no gain)';
+  $('gain').disabled = s.type !== 'APD';
+  $('mHint').textContent = s.type === 'APD' ? 'APD: each primary carrier creates M electrons by impact ionization.' : 'Gain is only active for the APD (PN and PIN: M = 1).';
+  $('typeHint').textContent = { PN: 'First form; slow tail limits speed.', PIN: 'Intrinsic layer separates P and N.', APD: 'Strong field region gives multiplication.' }[s.type];
+  $('rE').textContent = fmt(r.E, 3) + ' eV'; $('rLc').textContent = fmt(r.lc, 3) + ' µm';
+  $('rR').textContent = fmt(r.R, 3) + ' A/W'; $('rIp').textContent = fmt(r.Ip, 3) + ' µA';
+  $('rM').textContent = r.M; $('rIm').textContent = fmt(r.Im, 3) + ' µA';
+  $('rEpp').textContent = fmt(r.epp, 2); $('rPh').textContent = r.photons.toExponential(2) + ' photons/s';
+  $('subst').innerHTML = r.detect ? `R = ${F(s.eta.toFixed(2) + ' × ' + r.lam.toFixed(2), '1.24')} = ${fmt(r.R)} A/W; I<sub>M</sub> = ${r.M} × ${fmt(r.R)} × ${s.P} µW = ${fmt(r.Im)} µA`
+    : 'λ > λ<sub>c</sub>: photon energy below E<sub>g</sub>, so R = 0 and I = 0';
+  const st = $('status');
+  st.className = 'status ' + (r.detect ? 'ok' : 'bad');
+  st.innerHTML = r.detect ? `Detectable: E = ${fmt(r.E,2)} eV ≥ E<sub>g</sub> = ${s.Eg} eV` : `Not detected: E = ${fmt(r.E,2)} eV &lt; E<sub>g</sub> = ${s.Eg} eV (λ &gt; λ<sub>c</sub> = ${fmt(r.lc,2)} µm)`;
+  draw1(s, r); draw2(s, r); draw3(s);
+}
+function axes(ctx, w, h, xl, yl, m) {
+  ctx.clearRect(0, 0, w, h); ctx.strokeStyle = COLORS.navy; ctx.lineWidth = 2; ctx.fillStyle = COLORS.navy; ctx.font = '12px Courier New';
+  ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, h - m.b); ctx.lineTo(w - m.r, h - m.b); ctx.stroke();
+  ctx.fillText(xl, w / 2 - xl.length * 3.3, h - 6); ctx.save(); ctx.translate(12, h / 2 + yl.length * 3.3); ctx.rotate(-Math.PI / 2); ctx.fillText(yl, 0, 0); ctx.restore();
+}
+function draw1(s, r) {                    // R_eff vs wavelength
+  const cv = $('c1'), ctx = cv.getContext('2d'), w = cv.width, h = cv.height, m = { l: 50, r: 14, t: 14, b: 38 };
+  axes(ctx, w, h, 'Wavelength λ (µm)', 'R·M (A/W)', m);
+  const lMin = 0.6, lMax = 2.0, gain = s.type === 'APD' ? s.M : 1, yMax = Math.max(0.2, gain * s.eta * Math.min(HC_Q / s.Eg, lMax) / HC_Q * 1.15);
+  const X = l => m.l + (l - lMin) / (lMax - lMin) * (w - m.l - m.r), Y = v => h - m.b - v / yMax * (h - m.t - m.b);
+  ctx.strokeStyle = COLORS.blue; ctx.lineWidth = 3; ctx.beginPath();
+  const lc = HC_Q / s.Eg; let first = true;
+  for (let l = lMin; l <= Math.min(lc, lMax) + 1e-9; l += 0.01) { const v = gain * s.eta * l / HC_Q; first ? ctx.moveTo(X(l), Y(v)) : ctx.lineTo(X(l), Y(v)); first = false; }
+  if (lc <= lMax) ctx.lineTo(X(lc), Y(0)); ctx.stroke();
+  ctx.fillStyle = COLORS.navy; ctx.font = '11px Courier New';
+  for (let l = 0.6; l <= 2.01; l += 0.2) ctx.fillText(l.toFixed(1), X(l) - 9, h - m.b + 14);
+  for (let i = 0; i <= 4; i++) { const v = yMax * i / 4; ctx.fillText(v < 10 ? v.toFixed(2) : v.toFixed(0), 4, Y(v) + 4); }
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = COLORS.pink; ctx.beginPath(); ctx.moveTo(X(lc), m.t); ctx.lineTo(X(lc), h - m.b); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = COLORS.pink; ctx.fillText('λc', X(lc) + 3, m.t + 12);
+  ctx.fillStyle = r.detect ? COLORS.navy : COLORS.pink; ctx.beginPath(); ctx.arc(X(r.lam), Y(r.Reff), 6, 0, 7); ctx.fill();
+  $('cap1').textContent = `Operating point: λ = ${s.lamNm} nm, R·M = ${fmt(r.Reff)} A/W. Below λc, R rises linearly with λ; above λc it drops to zero.`;
+}
+function draw2(s, r) {                    // three detectors, same light
+  const cv = $('c2'), ctx = cv.getContext('2d'), w = cv.width, h = cv.height, m = { l: 60, r: 14, t: 18, b: 38 };
+  axes(ctx, w, h, 'Detector type', 'Output current (µA)', m);
+  const vals = [['PN', r.Ip], ['PIN', r.Ip], ['APD', s.M * r.Ip]], mx = Math.max(1e-9, ...vals.map(v => v[1])) * 1.15, bw = (w - m.l - m.r) / 3;
+  vals.forEach((v, i) => { const x = m.l + i * bw + bw * 0.2, bh = v[1] / mx * (h - m.t - m.b);
+    ctx.fillStyle = v[0] === s.type ? COLORS.pink : COLORS.cy; ctx.strokeStyle = COLORS.navy; ctx.lineWidth = 2;
+    ctx.fillRect(x, h - m.b - bh, bw * 0.6, bh); ctx.strokeRect(x, h - m.b - bh, bw * 0.6, bh);
+    ctx.fillStyle = COLORS.navy; ctx.font = '12px Courier New'; ctx.fillText(v[0], x + bw * 0.22, h - m.b + 16); ctx.fillText(fmt(v[1], 2), x + 4, h - m.b - bh - 5); });
+}
+function draw3(s) {                       // qualitative pulse response
+  const cv = $('c3'), ctx = cv.getContext('2d'), w = cv.width, h = cv.height, m = { l: 50, r: 14, t: 14, b: 34 };
+  axes(ctx, w, h, 'time (arb. units)', 'normalised current', m);
+  const X = t => m.l + t / 10 * (w - m.l - m.r), Y = v => h - m.b - v / 1.1 * (h - m.t - m.b);
+  const pin = t => t < 1 ? 0 : t < 5 ? 1 - Math.exp(-(t - 1) / 0.12) : (1 - Math.exp(-4 / 0.12)) * Math.exp(-(t - 5) / 0.12);
+  const pnF = t => t < 1 ? 0 : 0.78 * (1 - Math.exp(-(t - 1) / 0.12)) + 0.22 * (1 - Math.exp(-(t - 1) / 1.2));
+  const pn = t => t < 5 ? pnF(t) : pnF(5) * Math.exp(-(t - 5) / 1.3);
+  const line = (f, col, dash) => { ctx.setLineDash(dash || []); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); for (let t = 0; t <= 10; t += 0.02) t ? ctx.lineTo(X(t), Y(f(t))) : ctx.moveTo(X(t), Y(f(t))); ctx.stroke(); ctx.setLineDash([]); };
+  line(t => (t > 1 && t < 5 ? 1 : 0), COLORS.navy, [6, 5]);
+  line(pin, COLORS.blue, s.type === 'PN' ? [2, 6] : null); line(pn, COLORS.pink, s.type !== 'PN' ? [2, 6] : null);
+  ctx.font = '11px Courier New'; ctx.fillStyle = COLORS.blue; ctx.fillText('PIN', X(5.9), Y(0.35)); ctx.fillStyle = COLORS.pink; ctx.fillText('PN (slow tail)', X(6.1), Y(0.18));
+}
+
+const QS = [
+ { q: 'Q1. Silicon detector (E_g = 1.12 eV) at 1550 nm. What current do you predict?', o: ['Large current', 'Zero current', 'Half the 850 nm value'], a: 1, why: 'λ_c(Si) ≈ 1.11 µm, so 1550 nm photons (0.80 eV) cannot bridge the band gap: R = 0.' , set: 'si1550' },
+ { q: 'Q2. PIN, InGaAs, 1550 nm, η = 0.8, P = 10 µW. What is I_p?', o: ['1 µA', '10 µA', '100 µA'], a: 1, why: 'R = [[0.8×1.55//1.24]] = 1.0 A/W, so I_p = R P = 10 µA.', set: 'ing1550' },
+ { q: 'Q3. Now choose APD with M = 50. The output current becomes…', o: ['10 µA', '50 µA', '500 µA'], a: 2, why: 'I_M = M I_p = 50 × 10 µA = 500 µA.', set: 'apd' },
+ { q: 'Q4. Halve η from 0.8 to 0.4 (APD, same light). The current…', o: ['halves', 'stays equal', 'doubles'], a: 0, why: 'R ∝ η, so I_M halves: 250 µA.', set: null },
+ { q: 'Q5. Which curve shows the slow tail in the pulse plot?', o: ['PIN', 'PN', 'APD'], a: 1, why: 'Carriers freed outside the depletion region move slowly, which produces the PN slow tail.', set: null }
+];
+function sub(t) { return t.replace(/\[\[(.+?)\/\/(.+?)\]\]/g, (m, n, d) => F(n, d)).replace(/E_g/g, 'E<sub>g</sub>').replace(/λ_c/g, 'λ<sub>c</sub>').replace(/I_p/g, 'I<sub>p</sub>').replace(/I_M/g, 'I<sub>M</sub>'); }
+function buildQs() {
+  $('qs').innerHTML = '';
+  QS.forEach((q, i) => { const d = document.createElement('div'); d.className = 'q';
+    d.innerHTML = `<div>${sub(q.q)}</div>` + q.o.map((o, j) => `<label><input type="radio" name="q${i}" value="${j}"> ${o}</label>`).join('') + `<div class="fb" id="fb${i}"></div>`;
+    d.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => { const ok = +inp.value === q.a;
+      $('fb' + i).className = 'fb ' + (ok ? 'good' : 'wrong'); $('fb' + i).innerHTML = (ok ? 'Correct. ' : 'Not quite. ') + sub(q.why); }));
+    $('qs').appendChild(d); });
+}
+const PRE = { si850: { type: 'PIN', Eg: 1.12, lam: 850, P: 10, eta: 0.8, M: 50 }, ing1550: { type: 'PIN', Eg: 0.75, lam: 1550, P: 10, eta: 0.8, M: 50 },
+  si1550: { type: 'PIN', Eg: 1.12, lam: 1550, P: 10, eta: 0.8, M: 50 }, apd: { type: 'APD', Eg: 0.75, lam: 1550, P: 10, eta: 0.8, M: 50 } };
+document.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => setState(PRE[b.dataset.p])));
+$('reset').addEventListener('click', () => { setState(DEF); buildQs(); });
+$('qreset').addEventListener('click', buildQs);
+['lam', 'pow', 'eta', 'gain', 'mat'].forEach(id => $(id).addEventListener('input', update));
+document.querySelectorAll('input[name=type]').forEach(e => e.addEventListener('change', update));
+buildQs(); setState(DEF);
+}
+</script></body></html>
